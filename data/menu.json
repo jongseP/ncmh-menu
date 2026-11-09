@@ -1,5 +1,5 @@
 {
- "updated": "2026-11-09T21:57:50+09:00",
+ "updated": "2026-11-09T22:56:10+09:00",
  "source": "https://www.ncmh.go.kr/ncmh/board/boardList.do?fno=37&menu_cd=01_01",
  "weeks": [
   {
@@ -59,7 +59,8 @@
     {
      "date": "2026-11-05",
      "main": [
-      "A-고등어무조림 또는 B-순살안동찜닭"
+      "A-고등어무조림",
+      "B-순살안동찜닭"
      ],
      "rice": "보리밥",
      "sides": [

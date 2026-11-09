@@ -7,6 +7,14 @@ function findDay(weeks, iso) {
   return null;
 }
 
+// 처음 보여줄 날. 오늘이 있으면 오늘, 없으면 다가올 주 첫날(today:false), 그것도 없으면 null
+function pickStart(weeks, iso) {
+  const hit = findDay(weeks, iso);
+  if (hit) return { wi: weeks.indexOf(hit.week), sel: iso, today: true };
+  const next = weeks.findIndex(w => w.days[0].date > iso);
+  return next < 0 ? null : { wi: next, sel: weeks[next].days[0].date, today: false };
+}
+
 // now: {iso, hhmm:"HH:MM", weekend}, hours: {lunch_weekday, lunch_weekend, dinner} ("11:30~13:00")
 function statusText(now, hours) {
   const [ls, le] = (now.weekend ? hours.lunch_weekend : hours.lunch_weekday).split("~");

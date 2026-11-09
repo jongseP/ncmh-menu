@@ -3,7 +3,7 @@ import json
 import re
 import sys
 import urllib.request
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 
 BASE = "https://www.ncmh.go.kr"
@@ -14,9 +14,23 @@ OUT = Path(__file__).resolve().parent / "data" / "menu.json"
 KST = timezone(timedelta(hours=9))
 
 DEFAULT_HOURS = {"lunch_weekday": "11:30~13:00", "lunch_weekend": "11:30~12:20", "dinner": "16:20~17:10"}
-KEYS = {"주메뉴": "main", "밥": "rice", "국 및 반찬": "sides", "PLUS 코너": "plus", "TAKE OUT": "takeout"}
-DATE_RE = re.compile(r"^\[?(\d+)월 (\d+)일\([월화수목금토일]\)\]?$")
+# 키는 공백을 뺀 모양으로 비교한다 ("PLUS코너"도 "PLUS 코너"로 본다)
+KEYS = {"주메뉴": "main", "밥": "rice", "국및반찬": "sides", "PLUS코너": "plus", "TAKEOUT": "takeout"}
+# "11월 9일(월)", "[11월 2일(월)]", "11월 9일 (월)", "11월 10일(화) 메뉴"
+DATE_RE = re.compile(r"^\[?(\d+)월\s*(\d+)일\s*\([월화수목금토일]\)\]?(?:\s.*)?$")
+COLON = "[:：]"
 TIME = r"(\d{1,2}:\d{2}~\d{1,2}:\d{2})"
+
+
+def closest_year(year, title_month, month, day):
+    mid = date(year, title_month, 15)
+    cands = []
+    for c in (year - 1, year, year + 1):
+        try:
+            cands.append((abs((date(c, month, day) - mid).days), c))
+        except ValueError:  # 2월 29일이 없는 해
+            pass
+    return min(cands)[1]
 
 
 def parse_menu(text, title):
@@ -24,11 +38,11 @@ def parse_menu(text, title):
     year, title_month = int(m.group(1)), int(m.group(2))
 
     hours = dict(DEFAULT_HOURS)
-    if t := re.search(r"중식:.*?평일 " + TIME, text):
+    if t := re.search(r"중식" + COLON + r".*?평일 " + TIME, text):
         hours["lunch_weekday"] = t.group(1)
-    if t := re.search(r"중식:.*?주말 " + TIME, text):
+    if t := re.search(r"중식" + COLON + r".*?주말 " + TIME, text):
         hours["lunch_weekend"] = t.group(1)
-    if t := re.search(r"석식:\s*" + TIME, text):
+    if t := re.search(r"석식" + COLON + r"\s*" + TIME, text):
         hours["dinner"] = t.group(1)
 
     days, cur = [], None
@@ -36,17 +50,18 @@ def parse_menu(text, title):
         line = line.strip()
         if dm := DATE_RE.match(line):
             month, day = int(dm.group(1)), int(dm.group(2))
-            y = year + 1 if month < title_month else year
+            # 제목 연도 ±1 중 제목의 달에 가장 가까운 해 (12월 글의 1월, 1월 글의 12월)
+            y = closest_year(year, title_month, month, day)
             cur = {"date": f"{y:04d}-{month:02d}-{day:02d}", "main": [], "rice": None,
                    "sides": [], "plus": None, "takeout": None}
             days.append(cur)
         elif line.startswith("["):
             cur = None  # [원산지 및 알레르기 안내] 이후는 메뉴가 아니다
-        elif cur is not None and ":" in line:
-            key, val = (s.strip() for s in line.split(":", 1))
-            field = KEYS.get(key)
+        elif cur is not None and re.search(COLON, line):
+            key, val = (s.strip() for s in re.split(COLON, line, maxsplit=1))
+            field = KEYS.get(re.sub(r"\s+", "", key))
             if field == "main":
-                cur["main"] = [s.strip() for s in val.split("/") if s.strip()]
+                cur["main"] = [s.strip() for s in re.split(r"/|\s또는\s", val) if s.strip()]
             elif field == "sides":
                 cur["sides"] = [s.strip() for s in val.split(",") if s.strip()]
             elif field:
@@ -78,9 +93,13 @@ def get(url):
 def main():
     weeks = []
     for no, title in find_posts(get(LIST_URL)):
+        # 한 주라도 못 읽으면 실패로 끝낸다. 남은 주만 저장하면 빈 날이 조용히 생긴다.
         path = find_txt_path(get(VIEW_URL.format(no=no)))
-        if path:
-            weeks.append(parse_menu(get(FILE_URL.format(path=path)), title))
+        week = parse_menu(get(FILE_URL.format(path=path)), title) if path else None
+        if not week or not week["days"]:
+            print(f"읽지 못함: {title} — menu.json을 그대로 둔다", file=sys.stderr)
+            return 1
+        weeks.append(week)
     data = build(weeks)
     if not data["weeks"]:
         print("식단을 찾지 못함 — menu.json을 그대로 둔다", file=sys.stderr)

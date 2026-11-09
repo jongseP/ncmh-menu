@@ -8,6 +8,11 @@ on:
 permissions:
   contents: write
 
+# 예약 실행과 수동 실행이 겹치지 않게
+concurrency:
+  group: update-menu
+  cancel-in-progress: false
+
 jobs:
   update:
     runs-on: ubuntu-latest
@@ -17,6 +22,7 @@ jobs:
         with:
           python-version: "3.12"
       - run: python tests/test_parse.py
+      - run: node tests/test_view.mjs
       - run: python fetch_menu.py
       - name: commit if changed
         run: |
@@ -25,4 +31,5 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add data/menu.json
           git commit -m "chore: update menu"
+          git pull --rebase
           git push
