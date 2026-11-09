@@ -40,6 +40,10 @@ LIST = '<a class="bl_link" href="https://www.ncmh.go.kr/ncmh/board/boardView.do?
 assert find_posts(LIST) == [(10427, "2026년 11월 2주차 직원 식단표"), (10419, "2026년 11월 1주차 직원 식단표")]
 VIEW = "onclick=\"fn_fileDown('2026년 11월 2주차 직원 식단표_수정.jpg','/2026/11/x_1.jpg','10427','2');\" " \
        "onclick=\"fn_fileDown('2026년 11월 2주차 직원 식단표(텍스트파일)_수정.txt','/2026/11/x_2.txt','10427','1');\""
+# 속성 순서·공백이 바뀌거나 title 속성이 없어도 찾는다
+LIST2 = '<a title="" href="/ncmh/board/boardView.do?no=10500&amp;fno=37" class="x">\n  2026년 11월 3주차 직원 식단표 </a>' \
+        '<a href="/ncmh/board/boardView.do?no=10499&fno=37">2026년 11월 2주차 직원 식단표</a>'
+assert find_posts(LIST2) == [(10500, "2026년 11월 3주차 직원 식단표"), (10499, "2026년 11월 2주차 직원 식단표")]
 assert find_txt_path(VIEW) == "/2026/11/x_2.txt"
 assert find_txt_path("첨부 없음") is None
 assert build([{"title": "t", "hours": {}, "days": []}])["weeks"] == []

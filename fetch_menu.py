@@ -55,7 +55,7 @@ def parse_menu(text, title):
 
 
 def find_posts(list_html, limit=2):
-    posts = re.findall(r'boardView\.do\?no=(\d+)[^"]*"\s*title="">([^<]*직원 식단표[^<]*)</a>', list_html)
+    posts = re.findall(r'<a\b[^>]*boardView\.do\?no=(\d+)[^>]*>([^<]*직원 식단표[^<]*)</a>', list_html)
     return [(int(no), title.strip()) for no, title in posts][:limit]
 
 
