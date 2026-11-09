@@ -1,5 +1,17 @@
 """국립정신건강센터 공지의 직원 식단표를 data/menu.json으로 만든다."""
+import json
 import re
+import sys
+import urllib.request
+from datetime import datetime, timedelta, timezone
+from pathlib import Path
+
+BASE = "https://www.ncmh.go.kr"
+LIST_URL = BASE + "/ncmh/board/boardList.do?fno=37&menu_cd=01_01"
+VIEW_URL = BASE + "/ncmh/board/boardView.do?no={no}&fno=37&menu_cd=01_01&bn=newsView"
+FILE_URL = BASE + "/static/jsp/download_image.jsp?physical_name={path}"
+OUT = Path(__file__).resolve().parent / "data" / "menu.json"
+KST = timezone(timedelta(hours=9))
 
 DEFAULT_HOURS = {"lunch_weekday": "11:30~13:00", "lunch_weekend": "11:30~12:20", "dinner": "16:20~17:10"}
 KEYS = {"주메뉴": "main", "밥": "rice", "국 및 반찬": "sides", "PLUS 코너": "plus", "TAKE OUT": "takeout"}
@@ -40,3 +52,49 @@ def parse_menu(text, title):
             elif field:
                 cur[field] = val or None
     return {"title": title, "hours": hours, "days": days}
+
+
+def find_posts(list_html, limit=2):
+    posts = re.findall(r'boardView\.do\?no=(\d+)[^"]*"\s*title="">([^<]*직원 식단표[^<]*)</a>', list_html)
+    return [(int(no), title.strip()) for no, title in posts][:limit]
+
+
+def find_txt_path(view_html):
+    m = re.search(r"fn_fileDown\('[^']*\.txt','([^']+)'", view_html)
+    return m.group(1) if m else None
+
+
+def build(weeks):
+    weeks = sorted((w for w in weeks if w["days"]), key=lambda w: w["days"][0]["date"])
+    return {"updated": datetime.now(KST).isoformat(timespec="seconds"), "source": LIST_URL, "weeks": weeks}
+
+
+def get(url):
+    req = urllib.request.Request(url, headers={"User-Agent": "ncmh-menu-bot"})
+    with urllib.request.urlopen(req, timeout=20) as r:
+        return r.read().decode("utf-8")
+
+
+def main():
+    weeks = []
+    for no, title in find_posts(get(LIST_URL)):
+        path = find_txt_path(get(VIEW_URL.format(no=no)))
+        if path:
+            weeks.append(parse_menu(get(FILE_URL.format(path=path)), title))
+    data = build(weeks)
+    if not data["weeks"]:
+        print("식단을 찾지 못함 — menu.json을 그대로 둔다", file=sys.stderr)
+        return 1
+    if OUT.exists():
+        old = json.loads(OUT.read_text(encoding="utf-8"))
+        if old.get("weeks") == data["weeks"]:
+            print("변경 없음")
+            return 0
+    OUT.parent.mkdir(exist_ok=True)
+    OUT.write_text(json.dumps(data, ensure_ascii=False, indent=1) + "\n", encoding="utf-8")
+    print(f"저장: {[w['title'] for w in data['weeks']]}")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
