@@ -31,4 +31,9 @@ const W = [{days:[{date:"2026-11-02"},{date:"2026-11-08"}]}, {days:[{date:"2026-
 assert.deepEqual(pickStart(W, "2026-11-10"), {wi:1, sel:"2026-11-10", today:true});
 assert.deepEqual(pickStart(W, "2026-10-30"), {wi:0, sel:"2026-11-02", today:false});
 assert.equal(pickStart(W, "2026-11-16"), null);
+// 문구: 중식 끝나기 전 "점심", 끝난 뒤 "저녁"
+assert.equal(mealWord({hhmm:"12:59",weekend:false},H), "점심");
+assert.equal(mealWord({hhmm:"13:00",weekend:false},H), "저녁");
+assert.equal(mealWord({hhmm:"12:20",weekend:true},H), "저녁");
+assert.equal(mealWord({hhmm:"09:00",weekend:true},H), "점심");
 console.log("ok");

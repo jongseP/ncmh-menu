@@ -26,3 +26,9 @@ function statusText(now, hours) {
   if (t < pad(de)) return `지금 석식 시간 · ${de}까지`;
   return null;
 }
+
+// 중식이 끝나면 "저녁", 그 전은 "점심" (중·석식 같은 메뉴)
+function mealWord(now, hours) {
+  const le = (now.weekend ? hours.lunch_weekend : hours.lunch_weekday).split("~")[1];
+  return now.hhmm < le.padStart(5, "0") ? "점심" : "저녁";
+}
